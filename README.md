@@ -11,6 +11,7 @@ Pre-requisites
 
 * requests - for downloading the HTML
 * lxml - for parsing the HTML
+* cssselect - to get rid of .xpath("//a[contains(@class, 'b-controls-prev')]") constructions
 * beautifulsoup4 - for pretty-printing the HTML (I couldn't get lxml to do this for me)
 * unidecode - for transliteration of the title (you don't need this if your blog is in English)
 
