@@ -184,7 +184,8 @@ def create_parser():
         "--destination",
         dest="destination",
         type="string",
-        default="",
+        default=os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), 'blogs'),
         help="Set destination directory")
     p.add_option(
         "-f",
@@ -193,6 +194,11 @@ def create_parser():
         action="store_true",
         default=False,
         help="Overwrite existing files")
+    p.add_option(
+        '--to_csv',
+        dest="to_csv",
+        default=True,
+    )
     return p
 
 
@@ -203,13 +209,17 @@ def main():
     DEBUG = options.debug
 
     df = pd.DataFrame(columns=['title', 'text', 'tags'])
+    next_url = args[0]
     username = args[0]
     username = username[username.find('//') + 2:username.find('.live')]
+    
+    args = p.parse_args()
+    directory = args[0].destination
+    to_csv = args[0].to_csv
 
-    if len(args) != 1:
-        p.error("invalid number of arguments")
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
-    next_url = args[0]
 
     try:
         while next_url is not None:
@@ -219,10 +229,15 @@ def main():
             df = df.append(entry.update_df(username), ignore_index=True)
             next_url = entry.prev_entry_url
     except:
-        df.to_csv(f'{username}_lj_blog.csv')
+        print('End or error')
 
-    print(df)
-    df.to_csv(f'{username}_lj_blog.csv')
+    if DEBUG:
+        print(df)
+
+    if to_csv is True:
+        df.to_csv(os.path.join(directory, f'{username}_lj_blog.csv'))
+    else:
+        return df
 
 if __name__ == "__main__":
     main()
