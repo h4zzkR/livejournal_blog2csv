@@ -144,7 +144,7 @@ class Entry:
             return True
 
         text = ' '.join(list(filter(visible, data))[:-2]).replace(u'\xa0', u' ')
-        tags = '$$'.join(self.tags)
+        tags = '||'.join(self.tags)
         title = str(self.title)
 
         item = {'title' : title, 'text' : text, 'tags' : tags}
@@ -215,11 +215,13 @@ def main():
         while next_url is not None:
             print(next_url)
             entry = Entry.download(next_url)
+            # print(entry.update_df(username)['tags'])
             df = df.append(entry.update_df(username), ignore_index=True)
             next_url = entry.prev_entry_url
-    except KeyboardInterrupt:
-        pass
+    except:
+        df.to_csv(f'{username}_lj_blog.csv')
 
+    print(df)
     df.to_csv(f'{username}_lj_blog.csv')
 
 if __name__ == "__main__":
