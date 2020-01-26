@@ -11,7 +11,12 @@ import unidecode
 import bs4
 import urllib.request
 import urllib.parse
+import sys
 import urllib.error
+import urllib
+from bs4 import BeautifulSoup
+import pandas as pd
+import re
 
 DEBUG = 0
 
@@ -38,10 +43,18 @@ def parse_previous_link(root):
     """Parse the link to the chronologically previous blog entry."""
     prev_entry_url = None
     links = root.cssselect("a.b-controls-prev")
+
     if links:
         prev_entry_url = links[0].get("href")
-    if DEBUG:
-        print(prev_entry_url)
+
+    html_doc = urllib.request.urlopen(prev_entry_url).read()
+    soup = bs4.BeautifulSoup(html_doc, 'html.parser')
+    string = ''
+    for i in soup.find_all('meta')[1:]:
+        if 'og:url' in str(i):
+            string = str(i)
+    string = string[string.find('<meta content="') + len('<meta content="'):string.find('" property')]
+    prev_entry_url = string
     return prev_entry_url
 
 
@@ -115,32 +128,28 @@ class Entry:
         self.prev_entry_url = prev_entry_url
         self.tags = tags
 
-    def save_to(self, destination_dir, overwrite=False):
+    def update_df(self, df, username):
         """Save the entry to the specified directory.
         The filename of the entry will be determined from its title and update
         time.
         The entry will contain a Jekyll header with a HTML fragment
         representing the content."""
-        title = encode_title(self.title)
-        opath = P.join(
-            destination_dir, "%s-%s.html" %
-            (self.updated.strftime("%Y-%m-%d"), title))
-        #
-        # self.text is currently a UTF-8 encoded string, but prettify turns it
-        # into a Unicode string.
-        #
-        pretty_text = bs4.BeautifulSoup(self.text, "lxml").prettify()
-        lines = ["---", "title: %s" % self.title] + HEADERS + \
-            ["tags: " + " ".join(self.tags), "---", pretty_text]
-        #
-        # TODO:
-        # If the filenames aren't unique enough (e.g. same date, same title),
-        # the entries may end up overwriting each other.
-        #
-        if not overwrite:
-            assert not P.isfile(opath)
-        with codecs.open(opath, "w", "utf-8") as fout:
-            fout.write("\n".join(lines))
+
+        data = bs4.BeautifulSoup(self.text, "lxml").findAll(text=True)
+        def visible(element):
+            if element.parent.name in ['style', 'script', '[document]', 'head', 'title']:
+                return False
+            elif re.match('<!--.*-->', str(element.encode('utf-8'))):
+                return False
+            return True
+
+        text = ' '.join(list(filter(visible, data))[:-2]).replace(u'\xa0', u' ')
+        tags = '$$'.join(self.tags)
+        title = str(self.title)
+
+        item = {'username' : username, 'title' : title, 'text' : text, 'tags' : tags}
+        df.update(item)
+        return df
 
     @staticmethod
     def download(url):
@@ -194,6 +203,11 @@ def main():
     options, args = p.parse_args()
     DEBUG = options.debug
 
+    # df = pd.DataFrame(columns=['username', 'text', 'title', 'tags'])
+    df = {}
+    username = args[0]
+    username = username[username.find('//') + 2:username.find('.live')]
+
     if len(args) != 1:
         p.error("invalid number of arguments")
 
@@ -202,11 +216,18 @@ def main():
 
     next_url = args[0]
 
-    while next_url is not None:
-        print(next_url)
-        entry = Entry.download(next_url)
-        entry.save_to(options.destination, overwrite=options.overwrite)
-        next_url = entry.prev_entry_url
+    try:
+        while next_url is not None:
+            print(next_url)
+            entry = Entry.download(next_url)
+            df = entry.update_df(df, username)
+            next_url = entry.prev_entry_url
+    except AssertionError:
+        pass
+    
+    df = pd.DataFrame(df, index=[0])
+    df.to_csv(f'html/{username}_lj_blog.csv')
+    print(df)
 
 if __name__ == "__main__":
     main()
