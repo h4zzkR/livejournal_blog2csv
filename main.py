@@ -128,7 +128,7 @@ class Entry:
         self.prev_entry_url = prev_entry_url
         self.tags = tags
 
-    def update_df(self, df, username):
+    def update_df(self, username):
         """Save the entry to the specified directory.
         The filename of the entry will be determined from its title and update
         time.
@@ -147,9 +147,8 @@ class Entry:
         tags = '$$'.join(self.tags)
         title = str(self.title)
 
-        item = {'username' : username, 'title' : title, 'text' : text, 'tags' : tags}
-        df.update(item)
-        return df
+        item = {'title' : title, 'text' : text, 'tags' : tags}
+        return item
 
     @staticmethod
     def download(url):
@@ -203,8 +202,7 @@ def main():
     options, args = p.parse_args()
     DEBUG = options.debug
 
-    # df = pd.DataFrame(columns=['username', 'text', 'title', 'tags'])
-    df = {}
+    df = pd.DataFrame(columns=['title', 'text', 'tags'])
     username = args[0]
     username = username[username.find('//') + 2:username.find('.live')]
 
@@ -220,14 +218,13 @@ def main():
         while next_url is not None:
             print(next_url)
             entry = Entry.download(next_url)
-            df = entry.update_df(df, username)
+            df = df.append(entry.update_df(username), ignore_index=True)
             next_url = entry.prev_entry_url
-    except AssertionError:
-        pass
-    
-    df = pd.DataFrame(df, index=[0])
+    except KeyboardInterrupt:
+        print(df)
+        df.to_csv(f'html/{username}_lj_blog.csv')
+
     df.to_csv(f'html/{username}_lj_blog.csv')
-    print(df)
 
 if __name__ == "__main__":
     main()
