@@ -184,7 +184,7 @@ def create_parser():
         "--destination",
         dest="destination",
         type="string",
-        default="html",
+        default="",
         help="Set destination directory")
     p.add_option(
         "-f",
@@ -209,9 +209,6 @@ def main():
     if len(args) != 1:
         p.error("invalid number of arguments")
 
-    if not P.isdir(options.destination):
-        os.mkdir(options.destination)
-
     next_url = args[0]
 
     try:
@@ -221,10 +218,9 @@ def main():
             df = df.append(entry.update_df(username), ignore_index=True)
             next_url = entry.prev_entry_url
     except KeyboardInterrupt:
-        print(df)
-        df.to_csv(f'html/{username}_lj_blog.csv')
+        pass
 
-    df.to_csv(f'html/{username}_lj_blog.csv')
+    df.to_csv(f'{username}_lj_blog.csv')
 
 if __name__ == "__main__":
     main()
