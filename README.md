@@ -1,4 +1,4 @@
-lj-download
+livejournal_blog2csv
 ===========
 
 This script downloads LiveJournal articles and saves extracted information as pandas csv dataset.
