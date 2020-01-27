@@ -17,6 +17,7 @@ import urllib
 from bs4 import BeautifulSoup
 import pandas as pd
 import re
+from sys import stdout
 
 DEBUG = 0
 
@@ -50,9 +51,11 @@ def parse_previous_link(root):
     html_doc = urllib.request.urlopen(prev_entry_url).read()
     soup = bs4.BeautifulSoup(html_doc, 'html.parser')
     string = ''
+    # print(list(soup.find_all('meta'))[12]); sys.exit()
     for i in soup.find_all('meta')[1:]:
-        if 'og:url' in str(i):
+        if 'property="og:url"' in str(i):
             string = str(i)
+
     string = string[string.find('<meta content="') + len('<meta content="'):string.find('" property')]
     prev_entry_url = string
     return prev_entry_url
@@ -68,21 +71,6 @@ def parse_title(root):
         print(title)
     assert title
     return title
-
-
-def parse_timestamp(root):
-    """Parse the timestamp of a LiveJournal entry.
-    Returns a datetime.datetime instance."""
-    timestamp = None
-    published = root.cssselect("time.dt-published")
-    if published:
-        # 2013-12-13 20:59:00
-        timestamp = datetime.datetime.strptime(
-            published[0].text_content(), "%Y-%m-%d %H:%M:%S")
-    if DEBUG:
-        print(timestamp)
-    assert timestamp
-    return timestamp
 
 
 def parse_entry_text(root):
@@ -121,10 +109,9 @@ class Entry:
     """Represents a single LiveJournal entry.
     Includes functions for downloading an entry from a known URL."""
 
-    def __init__(self, title, text, updated, prev_entry_url, tags):
+    def __init__(self, title, text, prev_entry_url, tags):
         self.title = title
         self.text = text
-        self.updated = updated
         self.prev_entry_url = prev_entry_url
         self.tags = tags
 
@@ -162,10 +149,9 @@ class Entry:
         title = parse_title(root)
         tags = parse_and_remove_tags(root)
         entry_text = parse_entry_text(root)
-        timestamp = parse_timestamp(root)
         prev_entry_url = parse_previous_link(root)
 
-        return Entry(title, entry_text, timestamp, prev_entry_url, tags)
+        return Entry(title, entry_text, prev_entry_url, tags)
 
 
 def create_parser():
@@ -195,9 +181,10 @@ def create_parser():
         default=False,
         help="Overwrite existing files")
     p.add_option(
-        '--to_csv',
-        dest="to_csv",
-        default=True,
+        '--max_posts',
+        dest="max_posts",
+        default=500,
+        help="Count of max posts per blog"
     )
     return p
 
@@ -215,29 +202,29 @@ def main():
     
     args = p.parse_args()
     directory = args[0].destination
-    to_csv = args[0].to_csv
+    max_posts = args[0].max_posts
 
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-
+    cnt = 0
     try:
-        while next_url is not None:
+        while next_url is not None or cnt < max_posts:
             print(next_url)
             entry = Entry.download(next_url)
             # print(entry.update_df(username)['tags'])
             df = df.append(entry.update_df(username), ignore_index=True)
             next_url = entry.prev_entry_url
-    except:
-        print('End or error')
+            cnt += 1
+    except AssertionError:
+        pass
+    except KeyboardInterrupt:
+        pass
 
     if DEBUG:
         print(df)
 
-    if to_csv is True:
-        df.to_csv(os.path.join(directory, f'{username}_lj_blog.csv'))
-    else:
-        return df
+    df.to_csv(os.path.join(directory, f'{username}_lj_blog.csv'))
 
 if __name__ == "__main__":
     main()
