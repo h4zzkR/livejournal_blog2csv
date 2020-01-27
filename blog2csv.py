@@ -48,12 +48,6 @@ def parse_previous_link(root, special):
         string = string[string.find('<a href="') + len('<a href="'):string.find('"><img')]
     else:
         string = str(root.find('a', attrs={'class' : 'b-controls b-controls-prev'})['href'])
-
-    # html_doc = urllib.request.urlopen(str(string['href'])).read()
-    # root = bs4.BeautifulSoup(html_doc, 'html.parser')
-
-    # string = str(root.find('meta', attrs={'property' : 'og:url'}))
-    # string = string[string.find('<meta content="') + len('<meta content="'):string.find('" property')]
     return string
 
 
@@ -184,14 +178,16 @@ def main():
     
     args = p.parse_args()
     directory = args[0].destination
-    max_posts = args[0].max_posts
+    max_posts = int(args[0].max_posts)
 
     if not os.path.exists(directory):
         os.makedirs(directory)
 
     cnt = 0
     try:
-        while next_url is not None or cnt < max_posts:
+        while next_url is not None:
+            if cnt == max_posts:
+                break
             print(next_url)
             entry = Entry.download(next_url)
             df = df.append(entry.update_df(username), ignore_index=True)
@@ -200,6 +196,8 @@ def main():
     except AssertionError:
         pass
     except KeyboardInterrupt:
+        pass
+    except TypeError:
         pass
 
     if DEBUG:
