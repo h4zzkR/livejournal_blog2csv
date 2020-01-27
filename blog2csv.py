@@ -193,9 +193,8 @@ def main():
             df = df.append(entry.update_df(username), ignore_index=True)
             next_url = entry.prev_entry_url
             cnt += 1
-    except AssertionError:
-        pass
-    except KeyboardInterrupt:
+    except:
+        print(cnt)
         pass
     # except TypeError:
     #     pass
