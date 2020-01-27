@@ -70,7 +70,7 @@ def parse_entry_text(root,special):
         text = str(root.find_all('div', attrs={'class' : 'entry-content'})[0].text)
         text = text[:text.find('Tags')]
     else:
-        text = root.find('article', attrs={'class' : 'b-singlepost-body entry-content e-content'})
+        text = root.find('article', attrs={'class' : ' b-singlepost-body entry-content e-content '})
     return text
 
 
