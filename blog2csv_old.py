@@ -42,15 +42,34 @@ def encode_title(title):
 
 def parse_previous_link(root):
     """Parse the link to the chronologically previous blog entry."""
-    string = str(root.find('meta', attrs={'property' : 'og:url'}))
+    prev_entry_url = None
+    links = root.cssselect("a.b-controls-prev")
+
+    if links:
+        prev_entry_url = links[0].get("href")
+
+    html_doc = urllib.request.urlopen(prev_entry_url).read()
+    soup = bs4.BeautifulSoup(html_doc, 'html.parser')
+    string = ''
+    # print(list(soup.find_all('meta'))[12]); sys.exit()
+    for i in soup.find_all('meta')[1:]:
+        if 'property="og:url"' in str(i):
+            string = str(i)
+
     string = string[string.find('<meta content="') + len('<meta content="'):string.find('" property')]
-    return string
+    prev_entry_url = string
+    return prev_entry_url
 
 
 def parse_title(root):
     """Parse the title of a LiveJournal entry."""
-    title = str(root.find(attrs={"property" : "og:title"})).split('>')[0]
-    title = title[title.find('content="') + len('content="'):title.find('" property')]
+    title = None
+    h1 = root.cssselect('h1.entry-title')
+    if h1:
+        title = h1[0].text
+    if DEBUG:
+        print(title)
+    assert title
     return title
 
 
@@ -61,17 +80,29 @@ def parse_entry_text(root):
     # Here we only grab the HTML fragment that corresponds to the entry
     # context.
     # Throw everything else away.
+    #
     entry_text = None
-    article = root.find('article', attrs={'class' : 'b-singlepost-body entry-content e-content'}).text
-    return article
+    article = root.cssselect("article.entry-content")
+    if article:
+        entry_text = lxml.etree.tostring(
+            article[0], pretty_print=True, encoding="utf-8")
+    if DEBUG:
+        print(entry_text)
+    assert entry_text
+    return entry_text
 
 
 def parse_and_remove_tags(root):
     """Returns the tags for a LiveJournalEntry.
     As a side effect, destroy the tags element of the entry."""
-    tags = str(root.find('a', attrs={'class' : "b-controls b-controls-share js-lj-share"}))
-    tags = tags[tags.find('data-hashtags=') + len('data-hashtags="'):tags.find('" data-title="')]
-    return tags.split(',')
+    tags = []
+    a = root.cssselect("div.ljtags a")
+    if a:
+        tags = [aa.text for aa in a]
+    ljtags = root.cssselect("div.ljtags")
+    if ljtags:
+        ljtags[0].getparent().remove(ljtags[0])
+    return tags
 
 
 class Entry:
@@ -111,13 +142,10 @@ class Entry:
         """Download an entry from a URL and parse it."""
         if 'format=light' not in url:
             url = '{}{}format=light'.format(url, '&' if '?' in url else '?')
-        # r = requests.get(url)
-        # assert r.status_code == 200
+        r = requests.get(url)
+        assert r.status_code == 200
 
-        html_doc = urllib.request.urlopen(url).read()
-        root = bs4.BeautifulSoup(html_doc, 'html.parser')
-
-        # root = lxml.html.document_fromstring(r.text)
+        root = lxml.html.document_fromstring(r.text)
         title = parse_title(root)
         tags = parse_and_remove_tags(root)
         entry_text = parse_entry_text(root)
@@ -184,6 +212,7 @@ def main():
         while next_url is not None or cnt < max_posts:
             print(next_url)
             entry = Entry.download(next_url)
+            # print(entry.update_df(username)['tags'])
             df = df.append(entry.update_df(username), ignore_index=True)
             next_url = entry.prev_entry_url
             cnt += 1
