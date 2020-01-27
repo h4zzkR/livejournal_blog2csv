@@ -40,10 +40,20 @@ def encode_title(title):
     return encoded_title
 
 
-def parse_previous_link(root):
+def parse_previous_link(root, special):
     """Parse the link to the chronologically previous blog entry."""
-    string = str(root.find('meta', attrs={'property' : 'og:url'}))
-    string = string[string.find('<meta content="') + len('<meta content="'):string.find('" property')]
+    if special is True:
+        # span class="entry-linkbar-inner">
+        string = str(root.find('span', attrs={'class' : "entry-linkbar-inner"}))
+        string = string[string.find('<a href="') + len('<a href="'):string.find('"><img')]
+    else:
+        string = str(root.find('a', attrs={'class' : 'b-controls b-controls-prev'})['href'])
+
+    # html_doc = urllib.request.urlopen(str(string['href'])).read()
+    # root = bs4.BeautifulSoup(html_doc, 'html.parser')
+
+    # string = str(root.find('meta', attrs={'property' : 'og:url'}))
+    # string = string[string.find('<meta content="') + len('<meta content="'):string.find('" property')]
     return string
 
 
@@ -54,16 +64,20 @@ def parse_title(root):
     return title
 
 
-def parse_entry_text(root):
+def parse_entry_text(root,special):
     """Parse the actual entry text of a LiveJournal entry.
     Returns a UTF-8 encoded byte string."""
     #
     # Here we only grab the HTML fragment that corresponds to the entry
     # context.
     # Throw everything else away.
-    entry_text = None
-    article = root.find('article', attrs={'class' : 'b-singlepost-body entry-content e-content'}).text
-    return article
+    text = None
+    if special is True:
+        text = str(root.find_all('div', attrs={'class' : 'entry-content'})[0].text)
+        text = text[:text.find('Tags')]
+    else:
+        text = root.find('article', attrs={'class' : 'b-singlepost-body entry-content e-content'})
+    return text
 
 
 def parse_and_remove_tags(root):
@@ -78,11 +92,12 @@ class Entry:
     """Represents a single LiveJournal entry.
     Includes functions for downloading an entry from a known URL."""
 
-    def __init__(self, title, text, prev_entry_url, tags):
+    def __init__(self, title, text, prev_entry_url, tags, special):
         self.title = title
         self.text = text
         self.prev_entry_url = prev_entry_url
         self.tags = tags
+        self.special = special
 
     def update_df(self, username):
         """Save the entry to the specified directory.
@@ -90,16 +105,10 @@ class Entry:
         time.
         The entry will contain a Jekyll header with a HTML fragment
         representing the content."""
+        if self.special is False:
+            self.text = str(self.text.text)
 
-        data = bs4.BeautifulSoup(self.text, "lxml").findAll(text=True)
-        def visible(element):
-            if element.parent.name in ['style', 'script', '[document]', 'head', 'title']:
-                return False
-            elif re.match('<!--.*-->', str(element.encode('utf-8'))):
-                return False
-            return True
-
-        text = ' '.join(list(filter(visible, data))[:-2]).replace(u'\xa0', u' ')
+        text = self.text.replace(u'\xa0', u' ')
         tags = '||'.join(self.tags)
         title = str(self.title)
 
@@ -111,8 +120,9 @@ class Entry:
         """Download an entry from a URL and parse it."""
         if 'format=light' not in url:
             url = '{}{}format=light'.format(url, '&' if '?' in url else '?')
-        # r = requests.get(url)
-        # assert r.status_code == 200
+        special = False
+        if 'dir=prev' in url:
+            special = True
 
         html_doc = urllib.request.urlopen(url).read()
         root = bs4.BeautifulSoup(html_doc, 'html.parser')
@@ -120,10 +130,10 @@ class Entry:
         # root = lxml.html.document_fromstring(r.text)
         title = parse_title(root)
         tags = parse_and_remove_tags(root)
-        entry_text = parse_entry_text(root)
-        prev_entry_url = parse_previous_link(root)
+        entry_text = parse_entry_text(root, special)
+        prev_entry_url = parse_previous_link(root, special)
 
-        return Entry(title, entry_text, prev_entry_url, tags)
+        return Entry(title, entry_text, prev_entry_url, tags, special)
 
 
 def create_parser():
