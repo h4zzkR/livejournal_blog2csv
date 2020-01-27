@@ -1,3 +1,0 @@
-,title,text,tags
-0,NP чанкер и прототип шаблонизатора ответов для чатбота,,chatbot||существительное||namedentryrecognition||chunker||ner
-1,Датасет для тренировки NP chunker'а,,nlp||chunker||chunking||dataset||chatbot||существительное
