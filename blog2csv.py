@@ -42,13 +42,13 @@ def encode_title(title):
 
 def parse_previous_link(root, special):
     """Parse the link to the chronologically previous blog entry."""
+    string = ''
     if special is True:
-        # span class="entry-linkbar-inner">
         string = str(root.find('span', attrs={'class' : "entry-linkbar-inner"}))
         string = string[string.find('<a href="') + len('<a href="'):string.find('"><img')]
-    else:
+    if string == '':
         string = str(root.find('a', attrs={'class' : 'b-controls b-controls-prev'})['href'])
-    return string
+    return string.replace('www.', '')
 
 
 def parse_title(root):
@@ -66,11 +66,11 @@ def parse_entry_text(root,special):
     # context.
     # Throw everything else away.
     text = None
-    if special is True:
+    try:
         text = str(root.find_all('div', attrs={'class' : 'entry-content'})[0].text)
         text = text[:text.find('Tags')]
-    else:
-        text = root.find('article', attrs={'class' : ' b-singlepost-body entry-content e-content '})
+    except IndexError:
+        text = root.find('article', attrs={'class' : ' b-singlepost-body entry-content e-content '}).text
     return text
 
 
@@ -100,7 +100,7 @@ class Entry:
         The entry will contain a Jekyll header with a HTML fragment
         representing the content."""
         if self.special is False:
-            self.text = str(self.text.text)
+            self.text = str(self.text)
 
         text = self.text.replace(u'\xa0', u' ')
         tags = '||'.join(self.tags)
@@ -112,8 +112,8 @@ class Entry:
     @staticmethod
     def download(url):
         """Download an entry from a URL and parse it."""
-        if 'format=light' not in url:
-            url = '{}{}format=light'.format(url, '&' if '?' in url else '?')
+        # if 'format=light' not in url:
+        #     url = '{}{}format=light'.format(url, '&' if '?' in url else '?')
         special = False
         if 'dir=prev' in url:
             special = True
@@ -197,8 +197,8 @@ def main():
         pass
     except KeyboardInterrupt:
         pass
-    except TypeError:
-        pass
+    # except TypeError:
+    #     pass
 
     if DEBUG:
         print(df)
